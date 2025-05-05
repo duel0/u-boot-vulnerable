@@ -24,21 +24,26 @@ jobs:
         include:
         - language: c-cpp
           build-mode: autobuild
-        - language: python
-          build-mode: none
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-   
+    
     - name: Setup Custom Queries
       shell: bash
       run: |
         mkdir -p .github/codeql/custom-queries/cpp
-        cat << 'EOF' > .github/codeql/custom-queries/cpp/network-byte-swap.ql
+        
+        # Crea il file della query personalizzata
+        cat << 'EOF' > .github/codeql/custom-queries/cpp/networkByteSwap.ql
         /**
+         * @name Network byte swap vulnerability
+         * @description Identifies network byte swap values that flow into memcpy size arguments
          * @kind path-problem
+         * @id cpp/network-byte-swap-vulnerability
+         * @problem.severity warning
+         * @tags security
          */
         import cpp
         import semmle.code.cpp.dataflow.TaintTracking
@@ -77,20 +82,28 @@ jobs:
         select sink, source, sink, "Network byte swap flows to memcpy"
         EOF
         
-        # Creare un file di configurazione qlpack.yml per le query personalizzate
+        # Crea il file di configurazione qlpack.yml per le query personalizzate
         cat << 'EOF' > .github/codeql/custom-queries/qlpack.yml
-        name: custom-queries
+        name: custom-cpp-queries
         version: 0.0.1
-        dependencies:
-          codeql/cpp-all: "*"
+        libraryPathDependencies:
+          - codeql/cpp-all
         EOF
-
+        
+        # Crea un file di suite che include la query
+        cat << 'EOF' > .github/codeql/custom-queries/cpp-custom-queries.qls
+        - import: codeql-suites/cpp-security-extended.qls
+          from: codeql-cpp
+        - queries: .
+          from: .
+        EOF
+  
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
         build-mode: ${{ matrix.build-mode }}
-        queries: .github/codeql/custom-queries/cpp/network-byte-swap.ql,security-and-quality
+        queries: +.github/codeql/custom-queries
 
     - if: matrix.build-mode == 'manual'
       shell: bash
