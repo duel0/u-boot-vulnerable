@@ -1,9 +1,0 @@
-name: esercizio/softwaresecurity
-version: 0.0.1
-dependencies:
-  codeql/cpp-all: "*"
-library: false
-defaultSuite:
-  files:
-    - queries/network_bytes_memcpy.ql
-
