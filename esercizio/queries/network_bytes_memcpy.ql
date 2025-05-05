@@ -13,6 +13,7 @@ class NetworkByteSwap extends Expr {
   }
 }
 
+
 module MyConfig implements DataFlow::ConfigSig {
   predicate isSource(DataFlow::Node source) {
     exists(Expr e | source.asExpr() = e and e instanceof NetworkByteSwap)

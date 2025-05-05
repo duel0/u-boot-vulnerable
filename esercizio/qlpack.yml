@@ -6,3 +6,4 @@ library: false
 defaultSuite:
   files:
     - queries/network_bytes_memcpy.ql
+
