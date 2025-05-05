@@ -1,35 +1,33 @@
-name: "CodeQL Custom Analysis"
+name: CodeQL Custom Analysis
 
 on:
   push:
     branches: [master]
-  pull_request:
-    branches: [master]
 
 jobs:
   analyze:
-    name: Custom CodeQL Analysis
     runs-on: ubuntu-latest
     permissions:
       security-events: write
-    
     strategy:
       matrix:
         language: ['cpp']
-        
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-      
+
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
-        queries: +./codeql
-        packs: ./codeql
-        
+        queries: +./esercizio  
+        packs: ./esercizio     
+
     - name: Autobuild
       uses: github/codeql-action/autobuild@v3
-      
+
     - name: Perform Analysis
       uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:cpp"
