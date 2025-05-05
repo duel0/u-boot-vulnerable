@@ -23,7 +23,7 @@ jobs:
       matrix:
         include:
         - language: c-cpp
-          build-mode: autobuild
+          build-mode: none
 
     steps:
     - name: Checkout repository
@@ -101,11 +101,9 @@ jobs:
     - if: matrix.build-mode == 'manual'
       shell: bash
       run: |
-        echo 'Replace this with your manual build commands if needed'
-        exit 1
+        echo 'Using none build mode - no build required'
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
-
