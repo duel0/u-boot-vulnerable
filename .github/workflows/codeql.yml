@@ -1,3 +1,4 @@
+```yaml
 name: "CodeQL Advanced with Custom Query"
 
 on:
@@ -29,20 +30,20 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    
+    # Crea la directory per le query personalizzate
     - name: Setup Custom Queries
       shell: bash
       run: |
-        mkdir -p .github/codeql/custom-queries/cpp
+        mkdir -p ./.github/codeql-custom-queries-cpp
         
         # Crea il file della query personalizzata
-        cat << 'EOF' > .github/codeql/custom-queries/cpp/networkByteSwap.ql
+        cat << 'EOF' > ./.github/codeql-custom-queries-cpp/network-byte-swap.ql
         /**
          * @name Network byte swap vulnerability
          * @description Identifies network byte swap values that flow into memcpy size arguments
          * @kind path-problem
          * @id cpp/network-byte-swap-vulnerability
-         * @problem.severity warning
+         * @problem.severity error
          * @tags security
          */
         import cpp
@@ -83,27 +84,20 @@ jobs:
         EOF
         
         # Crea il file di configurazione qlpack.yml per le query personalizzate
-        cat << 'EOF' > .github/codeql/custom-queries/qlpack.yml
-        name: custom-cpp-queries
+        cat << 'EOF' > ./.github/codeql-custom-queries-cpp/qlpack.yml
+        name: codeql-custom-queries-cpp
         version: 0.0.1
         libraryPathDependencies:
           - codeql/cpp-all
         EOF
-        
-        # Crea un file di suite che include la query
-        cat << 'EOF' > .github/codeql/custom-queries/cpp-custom-queries.qls
-        - import: codeql-suites/cpp-security-extended.qls
-          from: codeql-cpp
-        - queries: .
-          from: .
-        EOF
-  
+
+    # Inizializza CodeQL con le query personalizzate
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
         build-mode: ${{ matrix.build-mode }}
-        queries: +.github/codeql/custom-queries
+        queries: ./.github/codeql-custom-queries-cpp
 
     - if: matrix.build-mode == 'manual'
       shell: bash
@@ -115,3 +109,4 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
+```
