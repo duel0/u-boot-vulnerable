@@ -1,0 +1,2 @@
+queries:
+  - .github/codeql/queries/lab.ql
