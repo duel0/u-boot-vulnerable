@@ -1,3 +1,9 @@
+name: CodeQL Custom Analysis
+
+on:
+  push:
+    branches: [ master ]
+
 jobs:
   analyze:
     name: Run Custom CodeQL Query
