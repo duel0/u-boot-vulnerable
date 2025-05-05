@@ -1,10 +1,5 @@
 /** 
- * @kind path-problem
- * @id duel0/softwaresecurity/extralab
- * @name Network Bytes verso memcpy
- * @description SWSEC lab, cerca flow da ntoh a memcpy
- * @problem.severity warning
- * @tags softwaresecurity
+ * @kind path-problem 
  */
 import cpp
 import semmle.code.cpp.dataflow.TaintTracking
@@ -19,7 +14,6 @@ class NetworkByteSwap extends Expr {
 }
 
 module MyConfig implements DataFlow::ConfigSig {
-
   predicate isSource(DataFlow::Node source) {
     exists(Expr e | source.asExpr() = e and e instanceof NetworkByteSwap)
   }
@@ -31,7 +25,6 @@ module MyConfig implements DataFlow::ConfigSig {
     )
   }
 
-  // Input validation
   predicate isBarrier(DataFlow::Node node) {
     node.asExpr().getEnclosingStmt() instanceof IfStmt
   }
