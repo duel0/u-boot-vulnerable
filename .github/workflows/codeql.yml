@@ -132,7 +132,7 @@ jobs:
     
     # Aggiungiamo un passo per salvare i risultati come artefatti
     - name: Upload SARIF results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: codeql-sarif-results
         path: sarif-results
