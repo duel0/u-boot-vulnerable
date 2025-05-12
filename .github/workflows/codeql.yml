@@ -128,3 +128,12 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
+        output: sarif-results
+    
+    # Aggiungiamo un passo per salvare i risultati come artefatti
+    - name: Upload SARIF results
+      uses: actions/upload-artifact@v3
+      with:
+        name: codeql-sarif-results
+        path: sarif-results
+        retention-days: 5
