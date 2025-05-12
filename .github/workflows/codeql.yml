@@ -1,4 +1,4 @@
-name: "CodeQL Direct Query Analysis"
+name: "CodeQL Custom Query Analysis"
 
 on:
   push:
@@ -16,6 +16,7 @@ jobs:
       actions: read
       contents: read
       security-events: write
+      # Aggiungiamo questo permesso esplicito
       issues: write
 
     strategy:
@@ -29,20 +30,28 @@ jobs:
       with:
         fetch-depth: 0
 
-    # IMPORTANTE: Prima creiamo la directory e il file della query
-    - name: Create custom query
+    # IMPORTANTE: Prima creiamo le directory e i file delle query
+    - name: Create custom queries directory
       run: |
         mkdir -p .github/codeql/custom-queries/cpp
         
+    - name: Write custom query
+      run: |
         cat > .github/codeql/custom-queries/cpp/network-byte-swap-to-memcpy.ql << 'EOL'
-        /** 
+        /**
          * @name Network byte swap to memcpy size
          * @description Network byte-swapped data flows to memcpy size parameter without validation
-         * @kind path-problem 
+         * @kind path-problem
+         * @problem.severity error
+         * @security-severity 8.0
+         * @precision high
+         * @id cpp/network-byte-swap-to-memcpy
+         * @tags security
+         *       external/cwe/cwe-131
          */
         import cpp
         import semmle.code.cpp.dataflow.TaintTracking
-
+        
         class NetworkByteSwap extends Expr {
           NetworkByteSwap() {
             exists(MacroInvocation invocation |
@@ -51,64 +60,87 @@ jobs:
             )
           }
         }
-
+        
         module MyConfig implements DataFlow::ConfigSig {
-
           predicate isSource(DataFlow::Node source) {
             exists(Expr e | source.asExpr() = e and e instanceof NetworkByteSwap)
           }
-
           predicate isSink(DataFlow::Node sink) {
             exists(FunctionCall call |
               call.getTarget().hasName("memcpy") and
-              sink.asExpr() = call.getArgument(2) 
+              sink.asExpr() = call.getArgument(2)
             )
           }
-
-          // Input validation
           predicate isBarrier(DataFlow::Node node) {
             node.asExpr().getEnclosingStmt() instanceof IfStmt
           }
         }
-
+        
         module MyTaint = TaintTracking::Global<MyConfig>;
         import MyTaint::PathGraph
-
+        
         from MyTaint::PathNode source, MyTaint::PathNode sink
         where MyTaint::flowPath(source, sink)
-        select sink, source, sink, "Network byte swap flows to memcpy"
+        select sink, source, sink, "Network byte swap flows to memcpy without validation"
         EOL
 
-    # Inizializzazione di CodeQL con query diretta
+    - name: Create query suite
+      run: |
+        cat > .github/codeql/custom-queries/cpp-custom-queries.qls << 'EOL'
+        # Reusing existing queries
+        - import: codeql-suites/cpp-security-extended.qls
+          from: codeql-cpp
+        # Adding custom queries
+        - include:
+            id:
+              - cpp/network-byte-swap-to-memcpy
+            tags contain:
+              - security
+              - external/cwe/cwe-131
+        EOL
+
+    # DOPO aver creato i file, inizializziamo CodeQL
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
-        queries: .github/codeql/custom-queries/cpp
-        build-mode: none
+        tools: latest
+        queries: ./.github/codeql/custom-queries/cpp-custom-queries.qls
+        debug: true
+    # Prepariamo l'ambiente di compilazione
+    - name: Setup build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential gcc-arm-linux-gnueabi
 
-    # Esecuzione dell'analisi
+    # Configurazione di compilazione per U-Boot
+    - name: Configure U-Boot
+      run: |
+        make CROSS_COMPILE=arm-linux-gnueabi- sandbox_defconfig || true
+      continue-on-error: true
+      
+    # Build con tracing di CodeQL
+    - name: Build with CodeQL tracing
+      run: |
+        make CROSS_COMPILE=arm-linux-gnueabi- -j4 || true
+      continue-on-error: true
+
+    # Analisi CodeQL con la nostra query personalizzata
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
         output: sarif-results
     
-    # Salvare i risultati come artefatti
+    # Aggiungiamo un passo per salvare i risultati come artefatti
     - name: Upload SARIF results
       uses: actions/upload-artifact@v4
       with:
         name: codeql-sarif-results
         path: sarif-results
         retention-days: 5
-    
-    # Forza l'upload dei risultati SARIF per assicurarsi che vengano visualizzati
-    - name: Upload SARIF to GitHub
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: sarif-results/cpp.sarif
 
-    # Debugging per verificare la presenza di pattern rilevanti
+    # Aggiungiamo un passo di debug per cercare pattern pertinenti nel codice
     - name: Debug potential matches
       run: |
         echo "=== Checking for potential matches ==="
