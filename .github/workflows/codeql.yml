@@ -1,4 +1,4 @@
-name: "CodeQL Basic Analysis"
+name: "CodeQL Custom Query Analysis"
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ master ]
   schedule:
-    - cron: '0 8 * * 1'
+    - cron: '0 8 * * 1'  # Esegui ogni lunedì alle 8:00
 
 jobs:
   analyze:
@@ -28,36 +28,102 @@ jobs:
       with:
         fetch-depth: 0
 
-    # Approccio semplificato: prima assicuriamoci che CodeQL funzioni 
-    # con la configurazione standard, senza query personalizzate
+    # IMPORTANTE: Prima creiamo le directory e i file delle query
+    - name: Create custom queries directory
+      run: |
+        mkdir -p .github/codeql/custom-queries/cpp
+        
+    - name: Write custom query
+      run: |
+        cat > .github/codeql/custom-queries/cpp/network-byte-swap-to-memcpy.ql << 'EOL'
+        /**
+         * @name Network byte swap to memcpy size
+         * @description Network byte-swapped data flows to memcpy size parameter without validation
+         * @kind path-problem
+         * @problem.severity error
+         * @security-severity 8.0
+         * @precision high
+         * @id cpp/network-byte-swap-to-memcpy
+         * @tags security
+         *       external/cwe/cwe-131
+         */
+        import cpp
+        import semmle.code.cpp.dataflow.TaintTracking
+        
+        class NetworkByteSwap extends Expr {
+          NetworkByteSwap() {
+            exists(MacroInvocation invocation |
+              invocation.getMacro().getName().regexpMatch("ntoh.*") and
+              invocation.getExpr() = this
+            )
+          }
+        }
+        
+        module MyConfig implements DataFlow::ConfigSig {
+          predicate isSource(DataFlow::Node source) {
+            exists(Expr e | source.asExpr() = e and e instanceof NetworkByteSwap)
+          }
+          predicate isSink(DataFlow::Node sink) {
+            exists(FunctionCall call |
+              call.getTarget().hasName("memcpy") and
+              sink.asExpr() = call.getArgument(2)
+            )
+          }
+          predicate isBarrier(DataFlow::Node node) {
+            node.asExpr().getEnclosingStmt() instanceof IfStmt
+          }
+        }
+        
+        module MyTaint = TaintTracking::Global<MyConfig>;
+        import MyTaint::PathGraph
+        
+        from MyTaint::PathNode source, MyTaint::PathNode sink
+        where MyTaint::flowPath(source, sink)
+        select sink, source, sink, "Network byte swap flows to memcpy without validation"
+        EOL
+
+    - name: Create query suite
+      run: |
+        cat > .github/codeql/custom-queries/cpp-custom-queries.qls << 'EOL'
+        # Reusing existing queries
+        - import: codeql-suites/cpp-security-extended.qls
+          from: codeql-cpp
+        # Adding custom queries
+        - include:
+            id:
+              - cpp/network-byte-swap-to-memcpy
+            tags contain:
+              - security
+              - external/cwe/cwe-131
+        EOL
+
+    # DOPO aver creato i file, inizializziamo CodeQL
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
-        # Specifichiamo una versione precisa di CodeQL
         tools: latest
-        # Per ora, usiamo solo le query standard
-        queries: security-extended
-        
-    # Prepariamo l'ambiente di compilazione ma evitiamo errori critici
+        queries: ./.github/codeql/custom-queries/cpp-custom-queries.qls
+
+    # Prepariamo l'ambiente di compilazione
     - name: Setup build environment
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential gcc-arm-linux-gnueabi
 
-    # Configurazione di compilazione più semplice per U-Boot
+    # Configurazione di compilazione per U-Boot
     - name: Configure U-Boot
       run: |
         make CROSS_COMPILE=arm-linux-gnueabi- sandbox_defconfig || true
       continue-on-error: true
       
-    # Build con tracing di CodeQL più semplice
+    # Build con tracing di CodeQL
     - name: Build with CodeQL tracing
       run: |
         make CROSS_COMPILE=arm-linux-gnueabi- -j4 || true
       continue-on-error: true
 
-    # Analisi CodeQL standard
+    # Analisi CodeQL con la nostra query personalizzata
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
