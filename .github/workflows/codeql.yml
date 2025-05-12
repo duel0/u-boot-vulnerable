@@ -106,7 +106,7 @@ jobs:
         languages: ${{ matrix.language }}
         tools: latest
         queries: ./.github/codeql/custom-queries/cpp-custom-queries.qls
-
+        debug: true
     # Prepariamo l'ambiente di compilazione
     - name: Setup build environment
       run: |
