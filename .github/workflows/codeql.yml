@@ -1,4 +1,4 @@
-name: "CodeQL Custom Query Analysis"
+name: "CodeQL Direct Query Analysis"
 
 on:
   push:
@@ -29,24 +29,16 @@ jobs:
       with:
         fetch-depth: 0
 
-    # IMPORTANTE: Prima creiamo le directory e i file delle query
-    - name: Create custom queries directory
+    # IMPORTANTE: Prima creiamo la directory e il file della query
+    - name: Create custom query
       run: |
         mkdir -p .github/codeql/custom-queries/cpp
         
-    - name: Write custom query
-      run: |
         cat > .github/codeql/custom-queries/cpp/network-byte-swap-to-memcpy.ql << 'EOL'
-        /**
+        /** 
          * @name Network byte swap to memcpy size
          * @description Network byte-swapped data flows to memcpy size parameter without validation
-         * @kind path-problem
-         * @problem.severity error
-         * @security-severity 8.0
-         * @precision high
-         * @id cpp/network-byte-swap-to-memcpy
-         * @tags security
-         *       external/cwe/cwe-131
+         * @kind path-problem 
          */
         import cpp
         import semmle.code.cpp.dataflow.TaintTracking
@@ -87,20 +79,12 @@ jobs:
         select sink, source, sink, "Network byte swap flows to memcpy"
         EOL
 
-    - name: Create query suite
-      run: |
-        cat > .github/codeql/custom-queries/cpp-custom-queries.qls << 'EOL'
-        # Includiamo solo la nostra query personalizzata
-        - queries: .
-          from: .github/codeql/custom-queries/cpp
-        EOL
-
-    # Inizializzazione di CodeQL con la modalità senza compilazione
+    # Inizializzazione di CodeQL con query diretta
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
-        queries: ./.github/codeql/custom-queries/cpp-custom-queries.qls
+        queries: .github/codeql/custom-queries/cpp
         build-mode: none
 
     # Esecuzione dell'analisi
