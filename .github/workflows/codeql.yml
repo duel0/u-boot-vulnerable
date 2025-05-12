@@ -139,3 +139,16 @@ jobs:
         name: codeql-sarif-results
         path: sarif-results
         retention-days: 5
+
+    # Aggiungiamo un passo di debug per cercare pattern pertinenti nel codice
+    - name: Debug potential matches
+      run: |
+        echo "=== Checking for potential matches ==="
+        echo "Looking for ntoh/hton macro invocations:"
+        grep -r "ntoh" --include="*.c" --include="*.h" . || echo "No ntoh found"
+        
+        echo "Looking for memcpy calls:"
+        grep -r "memcpy" --include="*.c" --include="*.h" . || echo "No memcpy found"
+        
+        echo "Looking for potential vulnerable patterns (network data to memcpy):"
+        grep -r -A 5 -B 5 "ntoh.*" --include="*.c" . | grep -i "memcpy" || echo "No direct matches found"
