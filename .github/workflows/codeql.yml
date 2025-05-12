@@ -2,9 +2,9 @@ name: "CodeQL Custom Query Analysis"
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
   schedule:
     - cron: '0 8 * * 1'  # Esegui ogni lunedì alle 8:00
 
